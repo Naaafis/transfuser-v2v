@@ -57,6 +57,7 @@ class DataAgent(AutoPilot):
             (self.save_path / 'label_raw').mkdir()
             (self.save_path / 'semantics').mkdir()
             (self.save_path / 'depth').mkdir()
+            (self.save_path / 'lidar_2').mkdir()
 
         self._active_traffic_light = None
 
@@ -83,7 +84,8 @@ class DataAgent(AutoPilot):
         self.map_dims = self.global_map.shape[2:4]
 
         self.renderer = lts_rendering.Renderer(world_offset, self.map_dims, data_generation=True)
-
+        
+        
     def sensors(self):
         result = super().sensors()
         if self.save_path is not None:
@@ -163,7 +165,7 @@ class DataAgent(AutoPilot):
 
         return result
 
-    def tick(self, input_data):
+    def tick(self, input_data, vehicle_2_data=None):
         result = super().tick(input_data)
 
         if self.save_path is not None:
@@ -189,14 +191,26 @@ class DataAgent(AutoPilot):
             depth =  np.concatenate(depth, axis=1)
 
             result['topdown'] = self.render_BEV()
-            lidar = input_data['lidar']
+            
             cars = self.get_bev_cars(lidar=lidar)
+            
+            lidar = input_data['lidar']
 
-            result.update({'lidar': lidar,
-                            'rgb': rgb,
-                            'cars': cars,
-                            'semantics': semantics,
-                            'depth': depth})
+            if vehicle_2_data is not None:
+                lidar_2 = vehicle_2_data['lidar']
+                result.update({'lidar': lidar,
+                                'lidar_2': lidar_2,
+                                'rgb': rgb,
+                                'cars': cars,
+                                'semantics': semantics,
+                                'depth': depth})
+                
+            else:
+                result.update({'lidar': lidar,
+                                'rgb': rgb,
+                                'cars': cars,
+                                'semantics': semantics,
+                                'depth': depth})
 
         return result
 
@@ -210,14 +224,70 @@ class DataAgent(AutoPilot):
             return control
 
         control = super().run_step(input_data, timestamp)
+        
+        # Collect data from the closest vehicle
+        vehicle_2_data = self.find_closest_vehicle()
 
         if self.step % self.save_freq == 0:
             if self.save_path is not None:
-                tick_data = self.tick(input_data)
+                tick_data = self.tick(input_data, vehicle_2_data)
                 self.save_sensors(tick_data)
                 self.shuffle_weather()
             
         return control
+    
+    def find_closest_vehicle(self):
+        closest_vehicle = None
+        min_distance = 30  # 30 meters threshold
+        max_distance = 50  # 50 meters threshold
+        ego_location = self._vehicle.get_location()
+        vehicles = self._world.get_actors().filter('*vehicle*')
+
+        for vehicle in vehicles:
+            if vehicle.id != self._vehicle.id:
+                distance = ego_location.distance(vehicle.get_location())
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_vehicle = vehicle
+                if distance > max_distance:
+                    # clean up the vechiel_wrapper if the vehicle is now too far away
+                    if vehicle.id in self._wrapped_vehicles:
+                        # run clean up first 
+                        self._wrapped_vehicles[vehicle.id].cleanup()
+                        self._wrapped_vehicles.pop(vehicle.id)
+
+        if closest_vehicle and closest_vehicle.id in self._wrapped_vehicles:
+            # sensors have already been set up for this vehicle
+            return self.collect_vehicle_data(self._wrapped_vehicles[closest_vehicle.id])
+        
+        else:
+            # Create sensor_spec based on the vehicle's current transform
+            vehicle_transform = closest_vehicle.get_transform()
+            sensor_spec = {
+                'type': 'sensor.lidar.ray_cast',
+                'x': vehicle_transform.location.x,
+                'y': vehicle_transform.location.y,
+                'z': vehicle_transform.location.z,
+                'roll': vehicle_transform.rotation.roll,
+                'pitch': vehicle_transform.rotation.pitch,
+                'yaw': vehicle_transform.rotation.yaw - 90,  # Adjusting yaw
+                'rotation_frequency': 20,
+                'points_per_second': 1200000,
+                'id': 'lidar'
+            }
+
+            # Wrap the vehicle and add it to the dictionary
+            vehicle_wrapper = VehicleWrapper(closest_vehicle, sensor_spec)
+            self._wrapped_vehicles[closest_vehicle.id] = vehicle_wrapper
+            # Setup sensor for the vehicle
+            vehicle_wrapper.setup_sensor()
+            # we will not collect data on this tick, we just set up the sensor, and collect data in the next tick
+            
+        return None
+    
+    def collect_vehicle_data(self, vehicle_wrapper):
+        # Logic to collect data from the vehicle wrapper
+        return vehicle_wrapper._sensor_interface.get_data()
 
     def shuffle_weather(self):
         # change weather for visual diversity
@@ -260,6 +330,9 @@ class DataAgent(AutoPilot):
         np.save(self.save_path / 'lidar' / ('%04d.npy' % frame), tick_data['lidar'], allow_pickle=True)
         self.save_labels(self.save_path / 'label_raw' / ('%04d.json' % frame), tick_data['cars'])
         
+        if 'lidar_2' in tick_data:
+            np.save(self.save_path / 'lidar_2' / ('%04d.npy' % frame), tick_data['lidar_2'], allow_pickle=True)
+        
     def save_labels(self, filename, result):
         with open(filename, 'w') as f:
             json.dump(result, f, indent=4)
@@ -272,11 +345,26 @@ class DataAgent(AutoPilot):
         return
     
     def destroy(self):
-        del self.global_map
-        del self.vehicle_template
-        del self.walker_template
-        del self.traffic_light_template
-        del self.map_dims
+        # print for debugging
+        print('DataAgent destroyed')
+        
+        # clean up all wrapped vehicles before destroying the agent
+        for vehicle_id in self._wrapped_vehicles:
+            self._wrapped_vehicles[vehicle_id].cleanup()
+            self._wrapped_vehicles.pop(vehicle_id)
+            
+        # Only delete global_map if it exists
+        if hasattr(self, 'global_map'):
+            del self.global_map
+        if hasattr(self, 'vehicle_template'):
+            del self.vehicle_template
+        if hasattr(self, 'walker_template'):
+            del self.walker_template
+        if hasattr(self, 'traffic_light_template'):
+            del self.traffic_light_template
+        if hasattr(self, 'map_dims'):
+            del self.map_dims
+        
         torch.cuda.empty_cache()
 
     def get_bev_cars(self, lidar=None):

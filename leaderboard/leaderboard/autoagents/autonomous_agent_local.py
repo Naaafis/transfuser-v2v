@@ -45,6 +45,12 @@ class AutonomousAgent(object):
         self.setup(path_to_conf_file, route_index)
 
         self.wallclock_t0 = None
+        
+        # keep track of nearby vehicles that have been wrapped with VehicleWrapper class for data collection
+        self._wrapped_vehicles = {} # key: vehicle.id, value: VehicleWrapper
+
+        # print for debugging
+        print('DataAgent initialized')
 
     def setup(self, path_to_conf_file):
         """
