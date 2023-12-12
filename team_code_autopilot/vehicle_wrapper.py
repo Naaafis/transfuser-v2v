@@ -75,10 +75,10 @@ class VehicleWrapper(object):
         
         # create sensor
         sensor_transform = carla.Transform(sensor_location, sensor_rotation)
-        sensor = CarlaDataProvider.get_world().spawn_actor(bp, sensor_transform, vehicle)
+        sensor = CarlaDataProvider.get_world().spawn_actor(bp, sensor_transform, self._vehicle)
         # setup callback
         
-        sensor.listen(CallBack(sensor_spec['id'], self._sensor_spec['type'], sensor, self._sensor_interface))
+        sensor.listen(CallBack(self._sensor_spec['id'], self._sensor_spec['type'], sensor, self._sensor_interface))
         self._sensors_list.append(sensor)
 
         # Tick once to spawn the sensors

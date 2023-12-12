@@ -11,6 +11,7 @@ import json
 from utils import lts_rendering
 from utils.map_utils import MapImage, encode_npy_to_pil, PIXELS_PER_METER
 from autopilot import AutoPilot
+from vehicle_wrapper import VehicleWrapper
 
 
 def get_entry_point():
@@ -58,6 +59,7 @@ class DataAgent(AutoPilot):
             (self.save_path / 'semantics').mkdir()
             (self.save_path / 'depth').mkdir()
             (self.save_path / 'lidar_2').mkdir()
+            (self.save_path / 'vehicle_2_pos').mkdir()  
 
         self._active_traffic_light = None
 
@@ -192,14 +194,20 @@ class DataAgent(AutoPilot):
 
             result['topdown'] = self.render_BEV()
             
-            cars = self.get_bev_cars(lidar=lidar)
-            
             lidar = input_data['lidar']
+            
+            cars = self.get_bev_cars(lidar=lidar)
 
             if vehicle_2_data is not None:
-                lidar_2 = vehicle_2_data['lidar']
+                lidar_2 = vehicle_2_data['data']['lidar']
+                vehicle_2_loc = vehicle_2_data['transform'].location
+                vehicle_2_yaw = vehicle_2_data['transform'].rotation.yaw
+                vehicle_2_pitch = vehicle_2_data['transform'].rotation.pitch
+                vehicle_2_roll = vehicle_2_data['transform'].rotation.roll
+                vehicle_2_pos = [vehicle_2_loc.x, vehicle_2_loc.y, vehicle_2_loc.z, vehicle_2_yaw, vehicle_2_pitch, vehicle_2_roll]
                 result.update({'lidar': lidar,
                                 'lidar_2': lidar_2,
+                                'vehicle_2_pos': vehicle_2_pos, 
                                 'rgb': rgb,
                                 'cars': cars,
                                 'semantics': semantics,
@@ -207,6 +215,8 @@ class DataAgent(AutoPilot):
                 
             else:
                 result.update({'lidar': lidar,
+                               'lidar_2': None, 
+                                'vehicle_2_pos': None,
                                 'rgb': rgb,
                                 'cars': cars,
                                 'semantics': semantics,
@@ -258,9 +268,21 @@ class DataAgent(AutoPilot):
 
         if closest_vehicle and closest_vehicle.id in self._wrapped_vehicles:
             # sensors have already been set up for this vehicle
-            return self.collect_vehicle_data(self._wrapped_vehicles[closest_vehicle.id])
-        
-        else:
+            closets_vehicle_transform = closest_vehicle.get_transform() 
+            # return both the vehicle and the sensor data
+            
+            #return self.collect_vehicle_data(self._wrapped_vehicles[closest_vehicle.id])
+            sensor_data = self.collect_vehicle_data(self._wrapped_vehicles[closest_vehicle.id])
+            
+            vehicle_2_info = {
+                'id': closest_vehicle.id,
+                'transform': closets_vehicle_transform,
+                'data': sensor_data
+            }
+            
+            return vehicle_2_info
+            
+        elif closest_vehicle and closest_vehicle.id not in self._wrapped_vehicles:
             # Create sensor_spec based on the vehicle's current transform
             vehicle_transform = closest_vehicle.get_transform()
             sensor_spec = {
@@ -330,13 +352,18 @@ class DataAgent(AutoPilot):
         np.save(self.save_path / 'lidar' / ('%04d.npy' % frame), tick_data['lidar'], allow_pickle=True)
         self.save_labels(self.save_path / 'label_raw' / ('%04d.json' % frame), tick_data['cars'])
         
-        if 'lidar_2' in tick_data:
+        if tick_data['lidar_2'] is not None and tick_data['vehicle_2_pos'] is not None:
             np.save(self.save_path / 'lidar_2' / ('%04d.npy' % frame), tick_data['lidar_2'], allow_pickle=True)
+            self.save_vehicle_pos(self.save_path / 'vehicle_2_pos' / ('%04d.npy' % frame), tick_data['vehicle_2_pos'])
         
     def save_labels(self, filename, result):
         with open(filename, 'w') as f:
             json.dump(result, f, indent=4)
         return
+    
+    def save_vehicle_pos(self, filename, points):
+        with open(filename, 'w') as f:
+            json.dump(points, f, indent=4)
 
     def save_points(self, filename, points):
         points_to_save = deepcopy(points[1])
@@ -351,7 +378,7 @@ class DataAgent(AutoPilot):
         # clean up all wrapped vehicles before destroying the agent
         for vehicle_id in self._wrapped_vehicles:
             self._wrapped_vehicles[vehicle_id].cleanup()
-            self._wrapped_vehicles.pop(vehicle_id)
+            # self._wrapped_vehicles.pop(vehicle_id)
             
         # Only delete global_map if it exists
         if hasattr(self, 'global_map'):
