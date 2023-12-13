@@ -1,0 +1,87 @@
+{
+    "_checkpoint": {
+        "global_record": {},
+        "progress": [
+            1,
+            122
+        ],
+        "records": [
+            {
+                "index": 0,
+                "infractions": {
+                    "collisions_layout": [],
+                    "collisions_pedestrian": [],
+                    "collisions_vehicle": [],
+                    "outside_route_lanes": [],
+                    "red_light": [],
+                    "route_dev": [],
+                    "route_timeout": [],
+                    "stop_infraction": [
+                        "Agent ran a stop with id=1011 at (x=527.13, y=60.52, z=0.0)"
+                    ],
+                    "vehicle_blocked": []
+                },
+                "meta": {
+                    "duration_game": 17.900000266730785,
+                    "duration_system": 104.29540777206421,
+                    "route_length": 57.762397454533456
+                },
+                "route_id": "RouteScenario_0",
+                "scores": {
+                    "score_composed": 100.0,
+                    "score_penalty": 1.0,
+                    "score_route": 100.0
+                },
+                "status": "Completed"
+            },
+            {
+                "index": 1,
+                "infractions": {
+                    "collisions_layout": [],
+                    "collisions_pedestrian": [],
+                    "collisions_vehicle": [],
+                    "outside_route_lanes": [],
+                    "red_light": [],
+                    "route_dev": [],
+                    "route_timeout": [],
+                    "stop_infraction": [
+                        "Agent ran a stop with id=1280 at (x=527.13, y=60.52, z=0.0)"
+                    ],
+                    "vehicle_blocked": []
+                },
+                "meta": {
+                    "duration_game": 17.600000262260437,
+                    "duration_system": 140.7711043357849,
+                    "route_length": 79.90608920372169
+                },
+                "route_id": "RouteScenario_1",
+                "scores": {
+                    "score_composed": 58.25271709853536,
+                    "score_penalty": 1.0,
+                    "score_route": 58.25271709853536
+                },
+                "status": "Failed - Simulation crashed"
+            }
+        ]
+    },
+    "eligible": false,
+    "entry_status": "Crashed",
+    "labels": [],
+    "sensors": [
+        "carla_opendrive_map",
+        "carla_imu",
+        "carla_gnss",
+        "carla_speedometer",
+        "carla_camera",
+        "carla_camera",
+        "carla_camera",
+        "carla_lidar",
+        "carla_camera",
+        "carla_camera",
+        "carla_camera",
+        "carla_camera",
+        "carla_camera",
+        "carla_camera"
+    ],
+    "values": []
+}

@@ -9,9 +9,9 @@ export SCENARIO_RUNNER_ROOT=${WORK_DIR}/scenario_runner
 export LEADERBOARD_ROOT=${WORK_DIR}/leaderboard
 export PYTHONPATH="${CARLA_ROOT}/PythonAPI/carla/":"${SCENARIO_RUNNER_ROOT}":"${LEADERBOARD_ROOT}":${PYTHONPATH}
 
-export SCENARIOS=${WORK_DIR}/leaderboard/data/training/scenarios/Scenario10/Town10HD_Scenario10.json
+#export SCENARIOS=${WORK_DIR}/leaderboard/data/training/scenarios/Scenario10/Town10HD_Scenario10.json
 #export SCENARIOS=${WORK_DIR}/leaderboard/data/training/scenarios/Scenario10/Town07_Scenario10.json
-#export SCENARIOS=${WORK_DIR}/leaderboard/data/training/scenarios/Scenario10/Town06_Scenario10.json
+export SCENARIOS=${WORK_DIR}/leaderboard/data/training/scenarios/Scenario10/Town06_Scenario10.json
 #export SCENARIOS=${WORK_DIR}/leaderboard/data/training/scenarios/Scenario10/Town05_Scenario10.json
 #export SCENARIOS=${WORK_DIR}/leaderboard/data/training/scenarios/Scenario10/Town04_Scenario10.json
 #export SCENARIOS=${WORK_DIR}/leaderboard/data/training/scenarios/Scenario10/Town03_Scenario10.json
@@ -64,9 +64,9 @@ export SCENARIOS=${WORK_DIR}/leaderboard/data/training/scenarios/Scenario10/Town
 #export SCENARIOS=${WORK_DIR}/leaderboard/data/training/scenarios/Scenario1/Town02_Scenario1.json
 #export SCENARIOS=${WORK_DIR}/leaderboard/data/training/scenarios/Scenario1/Town01_Scenario1.json
 
-export ROUTES=${WORK_DIR}/leaderboard/data/training/routes/Scenario10/Town10HD_Scenario10.xml
+#export ROUTES=${WORK_DIR}/leaderboard/data/training/routes/Scenario10/Town10HD_Scenario10.xml
 #export ROUTES=${WORK_DIR}/leaderboard/data/training/routes/Scenario10/Town07_Scenario10.xml
-#export ROUTES=${WORK_DIR}/leaderboard/data/training/routes/Scenario10/Town06_Scenario10.xml
+export ROUTES=${WORK_DIR}/leaderboard/data/training/routes/Scenario10/Town06_Scenario10.xml
 #export ROUTES=${WORK_DIR}/leaderboard/data/training/routes/Scenario10/Town05_Scenario10.xml
 #export ROUTES=${WORK_DIR}/leaderboard/data/training/routes/Scenario10/Town04_Scenario10.xml
 #export ROUTES=${WORK_DIR}/leaderboard/data/training/routes/Scenario10/Town03_Scenario10.xml
@@ -121,9 +121,9 @@ export ROUTES=${WORK_DIR}/leaderboard/data/training/routes/Scenario10/Town10HD_S
 
 export REPETITIONS=1
 export CHALLENGE_TRACK_CODENAME=MAP
-export CHECKPOINT_ENDPOINT=${WORK_DIR}/results/Town10HD_Scenario10.json
+#export CHECKPOINT_ENDPOINT=${WORK_DIR}/results/Town10HD_Scenario10.json
 #export CHECKPOINT_ENDPOINT=${WORK_DIR}/results/Town07_Scenario10.json
-#export CHECKPOINT_ENDPOINT=${WORK_DIR}/results/Town06_Scenario10.json
+export CHECKPOINT_ENDPOINT=${WORK_DIR}/results/Town06_Scenario10.json
 #export CHECKPOINT_ENDPOINT=${WORK_DIR}/results/Town05_Scenario10.json
 #export CHECKPOINT_ENDPOINT=${WORK_DIR}/results/Town04_Scenario10.json
 #export CHECKPOINT_ENDPOINT=${WORK_DIR}/results/Town03_Scenario10.json
@@ -176,9 +176,9 @@ export CHECKPOINT_ENDPOINT=${WORK_DIR}/results/Town10HD_Scenario10.json
 #export CHECKPOINT_ENDPOINT=${WORK_DIR}/results/Town02_Scenario1.json
 #export CHECKPOINT_ENDPOINT=${WORK_DIR}/results/Town01_Scenario1.json
 
-export SAVE_PATH=${WORK_DIR}/results/Town10HD_Scenario10
+#export SAVE_PATH=${WORK_DIR}/results/Town10HD_Scenario10
 #export SAVE_PATH=${WORK_DIR}/results/Town07_Scenario10
-#export SAVE_PATH=${WORK_DIR}/results/Town06_Scenario10
+export SAVE_PATH=${WORK_DIR}/results/Town06_Scenario10
 #export SAVE_PATH=${WORK_DIR}/results/Town05_Scenario10
 #export SAVE_PATH=${WORK_DIR}/results/Town04_Scenario10
 #export SAVE_PATH=${WORK_DIR}/results/Town03_Scenario10
