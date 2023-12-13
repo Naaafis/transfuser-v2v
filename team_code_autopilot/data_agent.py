@@ -354,7 +354,7 @@ class DataAgent(AutoPilot):
         
         if tick_data['lidar_2'] is not None and tick_data['vehicle_2_pos'] is not None:
             np.save(self.save_path / 'lidar_2' / ('%04d.npy' % frame), tick_data['lidar_2'], allow_pickle=True)
-            self.save_vehicle_pos(self.save_path / 'vehicle_2_pos' / ('%04d.npy' % frame), tick_data['vehicle_2_pos'])
+            self.save_vehicle_pos(self.save_path / 'vehicle_2_pos' / ('%04d.json' % frame), tick_data['vehicle_2_pos'])
         
     def save_labels(self, filename, result):
         with open(filename, 'w') as f:
