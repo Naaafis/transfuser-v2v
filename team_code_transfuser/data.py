@@ -133,6 +133,7 @@ class CARLA_Data(Dataset):
         loaded_depths = []
         loaded_semantics = []
         loaded_lidars = []
+        loaded_lidars_adj = []
         loaded_labels = []
         loaded_measurements = []
 
@@ -166,11 +167,13 @@ class CARLA_Data(Dataset):
                     measurements_i = ujson.load(f1)
 
                 lidars_i = np.load(str(lidars[i], encoding='utf-8'), allow_pickle=True)[1]  # [...,:3] # lidar: XYZI
+                lidars_adj_i = np.load(str(lidars_adj[i], encoding='utf-8'), allow_pickle=True)[1]
                 if (backbone == 'geometric_fusion'):
                     lidars_raw_i = np.load(str(lidars[i], encoding='utf-8'), allow_pickle=True)[1][..., :3]  # lidar: XYZI
                 else:
                     lidars_raw_i = None
                 lidars_i[:, 1] *= -1
+                lidars_adj_i[:, 1] *= -1
 
                 images_i = cv2.imread(str(images[i], encoding='utf-8'), cv2.IMREAD_COLOR)
                 if(images_i is None):
@@ -211,6 +214,7 @@ class CARLA_Data(Dataset):
             loaded_depths.append(depths_i)
             loaded_semantics.append(semantics_i)
             loaded_lidars.append(lidars_i)
+            loaded_lidars_adj.append(lidars_adj_i)
             loaded_measurements.append(measurements_i)
             if (backbone == 'geometric_fusion'):
                 loaded_lidars_raw.append(lidars_raw_i)
@@ -236,29 +240,25 @@ class CARLA_Data(Dataset):
         
         data['rgb'] = images_i
         data['bev'] = bevs_i
-        data['aug_degree'] = degree     # we also load the augmentation degree for later use
+        # data['aug_degree'] = degree     # we also load the augmentation degree for later use
 
-        # load adjacent vehicle lidar and its pose information, only use current frame
-        lidars_adj_i = np.load(str(lidars_adj[i], encoding='utf-8'), allow_pickle=True)[1]
-        lidars_adj_i[:, 1] *= -1
-        # pad the lidar point to fixed number
-        fixed_lidar_adj_i = np.empty((self.max_lidar_points, 4), dtype=np.float32)
-        num_points = min(self.max_lidar_points, lidars_adj_i.shape[0])
-        fixed_lidar_adj_i[:num_points, :4] = lidars_adj_i
+        # # pad the lidar point to fixed number
+        # fixed_lidar_adj_i = np.empty((self.max_lidar_points, 4), dtype=np.float32)
+        # num_points = min(self.max_lidar_points, lidars_adj_i.shape[0])
+        # fixed_lidar_adj_i[:num_points, :4] = lidars_adj_i
 
         with open(str(pose_adj[i], encoding='utf-8'), 'r') as f:
-            pose_adj_i = ujson.load(f)
+            pose_info_tmp = ujson.load(f)
         adj_info = {
-            'x': pose_adj_i[0],
-            'y': pose_adj_i[1],
-            'z': pose_adj_i[2],
-            'yaw': pose_adj_i[3],
-            'pitch': pose_adj_i[4],
-            'row': pose_adj_i[5],
-            'num_point': num_points
+            'x': pose_info_tmp[0],
+            'y': pose_info_tmp[1],
+            'z': pose_info_tmp[2],
+            'yaw': pose_info_tmp[3],
+            'pitch': pose_info_tmp[4],
+            'roll': pose_info_tmp[5],
         }
 
-        data['adj_lidar'] = fixed_lidar_adj_i
+        # data['adj_lidar'] = fixed_lidar_adj_i
         data['adj_info'] = adj_info
 
         if self.multitask:
@@ -273,6 +273,7 @@ class CARLA_Data(Dataset):
 
         # need to concatenate seq data here and align to the same coordinate
         lidars = []
+        lidars_adj = []
         if (backbone == 'geometric_fusion'):
             lidars_raw = []
         if (self.use_point_pillars == True):
@@ -280,9 +281,14 @@ class CARLA_Data(Dataset):
 
         for i in range(self.seq_len):
             lidar = loaded_lidars[i]
+            lidar_adj = loaded_lidars_adj[i]
             # transform lidar to lidar seq-1
             lidar = align(lidar, measurements[i], measurements[self.seq_len-1], degree=degree)
-            lidar_bev = lidar_to_histogram_features(lidar)
+            adj_matrix = xyz_rpy_to_transformation_mat(adj_info['x'], adj_info['y'], adj_info['z'], adj_info['roll'], adj_info['pitch'], adj_info['yaw'])
+            measurements_adj_dummy = {'ego_matrix': adj_matrix}
+            lidar_adj = align(lidar_adj, measurements_adj_dummy, measurements[self.seq_len-1], degree=degree)
+            lidar_merged = np.concatenate([lidar, lidar_adj], axis=0)
+            lidar_bev = lidar_to_histogram_features(lidar_merged)
             lidars.append(lidar_bev)
 
             if (backbone == 'geometric_fusion'):
@@ -888,3 +894,26 @@ def decode_pil_to_npy(img):
 
     # hard coded to select
     return bev_array[10:12]
+
+def xyz_rpy_to_transformation_mat(x, y, z, roll, pitch, yaw):
+    yaw_mat = np.array([
+        [np.cos(yaw), -np.sin(yaw), 0],
+        [np.sin(yaw),  np.cos(yaw), 0],
+        [0,            0,           1]
+    ])
+    pitch_mat = np.array([
+        [np.cos(pitch), 0, np.sin(pitch)],
+        [0,             1, 0],
+        [-np.sin(pitch), 0, np.cos(pitch)]
+    ])
+    roll_mat = np.array([
+        [1, 0,              0],
+        [0, np.cos(roll), -np.sin(roll)],
+        [0, np.sin(roll),  np.cos(roll)]
+    ])
+    R = yaw_mat @ pitch_mat @ roll_mat
+    T = np.array([x, y, z])
+    transformation_mat = np.eye(4)
+    transformation_mat[:3, :3] = R
+    transformation_mat[:3, 3] = T
+    return transformation_mat
