@@ -40,6 +40,8 @@ class CARLA_Data(Dataset):
         self.depths = []
         self.semantics = []
         self.lidars = []
+        self.lidars_adj = []
+        self.pose_adj = []
         self.labels = []
         self.measurements = []
 
@@ -61,6 +63,8 @@ class CARLA_Data(Dataset):
                     depth = []
                     semantic = []
                     lidar = []
+                    lidar_adj = []
+                    loc_adj = []
                     label = []
                     measurement= []
                     # Loads the current (and past) frames (if seq_len > 1)
@@ -70,6 +74,8 @@ class CARLA_Data(Dataset):
                         depth.append(route_dir / "depth" / ("%04d.png" % (seq + idx)))
                         semantic.append(route_dir / "semantics" / ("%04d.png" % (seq + idx)))
                         lidar.append(route_dir / "lidar" / ("%04d.npy" % (seq + idx)))
+                        lidar_adj.append(route_dir / "lidar_2" / ("%04d.npy" % (seq + idx)))
+                        loc_adj.append(route_dir / "vehicle_2_pos" / ("%04d.json" % (seq + idx)))
                         measurement.append(route_dir / "measurements" / ("%04d.json"%(seq+idx)))
 
                     # Additionally load future labels of the waypoints
@@ -81,6 +87,8 @@ class CARLA_Data(Dataset):
                     self.depths.append(depth)
                     self.semantics.append(semantic)
                     self.lidars.append(lidar)
+                    self.lidars_adj.append(lidar_adj)
+                    self.pose_adj.append(loc_adj)
                     self.labels.append(label)
                     self.measurements.append(measurement)
 
@@ -92,6 +100,8 @@ class CARLA_Data(Dataset):
         self.depths       = np.array(self.depths      ).astype(np.string_)
         self.semantics    = np.array(self.semantics   ).astype(np.string_)
         self.lidars       = np.array(self.lidars      ).astype(np.string_)
+        self.lidars_adj   = np.array(self.lidars_adj  ).astype(np.string_)
+        self.pose_adj      = np.array(self.pose_adj).astype(np.string_)
         self.labels       = np.array(self.labels      ).astype(np.string_)
         self.measurements = np.array(self.measurements).astype(np.string_)
         print("Loading %d lidars from %d folders"%(len(self.lidars), len(root)))
@@ -112,6 +122,8 @@ class CARLA_Data(Dataset):
         depths = self.depths[index]
         semantics = self.semantics[index]
         lidars = self.lidars[index]
+        lidars_adj = self.lidars_adj[index]
+        pose_adj = self.pose_adj[index]
         labels = self.labels[index]
         measurements = self.measurements[index]
 
@@ -133,7 +145,6 @@ class CARLA_Data(Dataset):
             if ((not (self.data_cache is None)) and (str(labels[i], encoding='utf-8') in self.data_cache)):
                     labels_i = self.data_cache[str(labels[i], encoding='utf-8')]
             else:
-
                 with open(str(labels[i], encoding='utf-8'), 'r') as f2:
                     labels_i = ujson.load(f2)
 
@@ -141,7 +152,6 @@ class CARLA_Data(Dataset):
                     self.data_cache[str(labels[i], encoding='utf-8')] = labels_i
 
             loaded_labels.append(labels_i)
-
 
         for i in range(self.seq_len):
             if not self.data_cache is None and str(measurements[i], encoding='utf-8') in self.data_cache:
@@ -211,7 +221,7 @@ class CARLA_Data(Dataset):
         # load image, only use current frame
         # augment here
         crop_shift = 0
-        degree = 0
+        degree = 0      # ego vehicle rotate clockwise
         rad = np.deg2rad(degree)
         do_augment = self.augment and random.random() > self.inv_augment_prob
         if do_augment:
@@ -226,6 +236,30 @@ class CARLA_Data(Dataset):
         
         data['rgb'] = images_i
         data['bev'] = bevs_i
+        data['aug_degree'] = degree     # we also load the augmentation degree for later use
+
+        # load adjacent vehicle lidar and its pose information, only use current frame
+        lidars_adj_i = np.load(str(lidars_adj[i], encoding='utf-8'), allow_pickle=True)[1]
+        lidars_adj_i[:, 1] *= -1
+        # pad the lidar point to fixed number
+        fixed_lidar_adj_i = np.empty((self.max_lidar_points, 4), dtype=np.float32)
+        num_points = min(self.max_lidar_points, lidars_adj_i.shape[0])
+        fixed_lidar_adj_i[:num_points, :4] = lidars_adj_i
+
+        with open(str(pose_adj[i], encoding='utf-8'), 'r') as f:
+            pose_adj_i = ujson.load(f)
+        adj_info = {
+            'x': pose_adj_i[0],
+            'y': pose_adj_i[1],
+            'z': pose_adj_i[2],
+            'yaw': pose_adj_i[3],
+            'pitch': pose_adj_i[4],
+            'row': pose_adj_i[5],
+            'num_point': num_points
+        }
+
+        data['adj_lidar'] = fixed_lidar_adj_i
+        data['adj_info'] = adj_info
 
         if self.multitask:
             depths_i = loaded_depths[self.seq_len-1]
@@ -409,7 +443,7 @@ def transform_waypoints(waypoints):
     return waypoints
 
 def align(lidar_0, measurements_0, measurements_1, degree=0):
-    
+    """align """
     matrix_0 = measurements_0['ego_matrix']
     matrix_1 = measurements_1['ego_matrix']
 
