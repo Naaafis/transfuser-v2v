@@ -18,6 +18,9 @@ from data import lidar_to_histogram_features, draw_target_point, lidar_bev_cam_c
 
 from shapely.geometry import Polygon
 
+from vehicle_wrapper import VehicleWrapper
+from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
+
 import itertools
 import pathlib
 SAVE_PATH = os.environ.get('SAVE_PATH')
@@ -113,6 +116,9 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
         self._route_planner = RoutePlanner(self.config.route_planner_min_distance, self.config.route_planner_max_distance)
         self._route_planner.set_route(self._global_plan, True)
         self.initialized = True
+        # Privileged
+        self._vehicle = CarlaDataProvider.get_hero_actor()
+        self._world = self._vehicle.get_world()
 
     def _get_position(self, tick_data):
         gps = tick_data['gps']
@@ -173,6 +179,7 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
 
         if (self.backbone != 'latentTF'):  # LiDAR method
             sensors.append({
+            sensors.append({
                             'type': 'sensor.lidar.ray_cast',
                             'x': self.lidar_pos[0], 'y': self.lidar_pos[1], 'z': self.lidar_pos[2],
                             'roll': self.config.lidar_rot[0], 'pitch': self.config.lidar_rot[1], 'yaw': self.config.lidar_rot[2],
@@ -181,7 +188,7 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
 
         return sensors
 
-    def tick(self, input_data):
+    def tick(self, input_data, vehicle_2_data=None):
         rgb = []
         for pos in ['left', 'front', 'right']:
             rgb_cam = 'rgb_' + pos
@@ -232,6 +239,72 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
         result['target_point'] = tuple(local_command_point)
 
         return result
+        
+    def find_closest_vehicle(self):
+        closest_vehicle = None
+        min_distance = 30  # 30 meters threshold
+        max_distance = 50  # 50 meters threshold
+        ego_location = self._vehicle.get_location()
+        vehicles = self._world.get_actors().filter('*vehicle*')
+
+        for vehicle in vehicles:
+            if vehicle.id != self._vehicle.id:
+                distance = ego_location.distance(vehicle.get_location())
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_vehicle = vehicle
+                if distance > max_distance:
+                    # clean up the vechiel_wrapper if the vehicle is now too far away
+                    if vehicle.id in self._wrapped_vehicles:
+                        # run clean up first 
+                        self._wrapped_vehicles[vehicle.id].cleanup()
+                        self._wrapped_vehicles.pop(vehicle.id)
+
+        if closest_vehicle and closest_vehicle.id in self._wrapped_vehicles:
+            # sensors have already been set up for this vehicle
+            closets_vehicle_transform = closest_vehicle.get_transform() 
+            # return both the vehicle and the sensor data
+            
+            #return self.collect_vehicle_data(self._wrapped_vehicles[closest_vehicle.id])
+            sensor_data = self.collect_vehicle_data(self._wrapped_vehicles[closest_vehicle.id])
+            
+            vehicle_2_info = {
+                'id': closest_vehicle.id,
+                'transform': closets_vehicle_transform,
+                'data': sensor_data
+            }
+            
+            return vehicle_2_info
+            
+        elif closest_vehicle and closest_vehicle.id not in self._wrapped_vehicles:
+            # Create sensor_spec based on the vehicle's current transform
+            vehicle_transform = closest_vehicle.get_transform()
+            sensor_spec = {
+                'type': 'sensor.lidar.ray_cast',
+                'x': vehicle_transform.location.x,
+                'y': vehicle_transform.location.y,
+                'z': vehicle_transform.location.z,
+                'roll': vehicle_transform.rotation.roll,
+                'pitch': vehicle_transform.rotation.pitch,
+                'yaw': vehicle_transform.rotation.yaw - 90,  # Adjusting yaw
+                'rotation_frequency': 20,
+                'points_per_second': 1200000,
+                'id': 'lidar'
+            }
+
+            # Wrap the vehicle and add it to the dictionary
+            vehicle_wrapper = VehicleWrapper(closest_vehicle, sensor_spec)
+            self._wrapped_vehicles[closest_vehicle.id] = vehicle_wrapper
+            # Setup sensor for the vehicle
+            vehicle_wrapper.setup_sensor()
+            # we will not collect data on this tick, we just set up the sensor, and collect data in the next tick
+            
+        return None
+    
+    def collect_vehicle_data(self, vehicle_wrapper):
+        # Logic to collect data from the vehicle wrapper
+        return vehicle_wrapper._sensor_interface.get_data()
+
 
     @torch.inference_mode() # Faster version of torch_no_grad
     def run_step(self, input_data, timestamp):
@@ -243,10 +316,13 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
             control.steer = 0.0
             control.throttle = 0.0
             control.brake = 1.0
-            self.control = control        
+            self.control = control      
+            
+        # get data from the other vehicle if it exists
+        vehicle_2_data = self.find_closest_vehicle()  
 
         # Need to run this every step for GPS denoising
-        tick_data = self.tick(input_data)
+        tick_data = self.tick(input_data, vehicle_2_data)
 
         # repeat actions twice to ensure LiDAR data availability
         if self.step % self.config.action_repeat == 1:
