@@ -173,6 +173,7 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
 
         if (self.backbone != 'latentTF'):  # LiDAR method
             sensors.append({
+            sensors.append({
                             'type': 'sensor.lidar.ray_cast',
                             'x': self.lidar_pos[0], 'y': self.lidar_pos[1], 'z': self.lidar_pos[2],
                             'roll': self.config.lidar_rot[0], 'pitch': self.config.lidar_rot[1], 'yaw': self.config.lidar_rot[2],
