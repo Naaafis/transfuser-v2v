@@ -14,7 +14,7 @@ import math
 from leaderboard.autoagents import autonomous_agent
 from model import LidarCenterNet
 from config import GlobalConfig
-from data import lidar_to_histogram_features, draw_target_point, lidar_bev_cam_correspondences
+from data import lidar_to_histogram_features, draw_target_point, lidar_bev_cam_correspondences, align
 
 from shapely.geometry import Polygon
 
@@ -220,10 +220,11 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
             try:
                 result['lidar_adj'] = vehicle_2_data['data']['lidar'][1][:, :3]
                 result['pose_adj'] = vehicle_2_data['transform']
-            except:
+            except Exception as e:
+                print("Failed to get data from adjacent due to: ", e)
                 result['lidar_adj'] = None
                 result['pose_adj'] = None
-
+        result['pose_ego'] = input_data['ego_transform']
         pos = self._get_position(result)
         result['gps'] = pos
 
@@ -266,6 +267,15 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
                         self._wrapped_vehicles[vehicle.id].cleanup()
                         self._wrapped_vehicles.pop(vehicle.id)
 
+        # remove all other vehicles other than closest_vehicle from wrapped_vehicles
+        for vehicle in vehicles:
+            if closest_vehicle:
+                if vehicle.id != self._vehicle.id and vehicle.id != closest_vehicle.id:
+                    if vehicle.id in self._wrapped_vehicles:
+                        # run clean up first
+                        self._wrapped_vehicles[vehicle.id].cleanup()
+                        self._wrapped_vehicles.pop(vehicle.id)
+
         if closest_vehicle and closest_vehicle.id in self._wrapped_vehicles:
             # sensors have already been set up for this vehicle
             closets_vehicle_transform = closest_vehicle.get_transform() 
@@ -288,12 +298,12 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
             vehicle_transform = closest_vehicle.get_transform()
             sensor_spec = {
                 'type': 'sensor.lidar.ray_cast',
-                'x': vehicle_transform.location.x + 1.3,
-                'y': vehicle_transform.location.y + 0.0,
-                'z': vehicle_transform.location.z + 2.5,
-                'roll': vehicle_transform.rotation.roll,
-                'pitch': vehicle_transform.rotation.pitch,
-                'yaw': vehicle_transform.rotation.yaw - 90,  # Adjusting yaw
+                'x': 1.3,
+                'y': 0.0,
+                'z': 2.5,
+                'roll': 0,
+                'pitch': 0,
+                'yaw': -90,  # Adjusting yaw
                 'rotation_frequency': 20,
                 'points_per_second': 1200000,
                 'id': 'lidar'
@@ -311,7 +321,7 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
     def collect_vehicle_data(self, vehicle_wrapper):
         # Logic to collect data from the vehicle wrapper
         try:
-            print("adj vehicle sensor data buffer length:", vehicle_wrapper._sensor_interface._new_data_buffers.qsize())
+            # print("adj vehicle sensor data buffer length:", vehicle_wrapper._sensor_interface._new_data_buffers.qsize())
             data = vehicle_wrapper._sensor_interface.get_data()
             # print("Successfully get data from vehicle wrapper")
         except:
@@ -331,9 +341,11 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
             control.throttle = 0.0
             control.brake = 1.0
             self.control = control      
-            
+
+        # add ego transformation matrix to input_data
+        input_data['ego_transform'] = self._vehicle.get_transform()
         # get data from the other vehicle if it exists
-        vehicle_2_data = self.find_closest_vehicle()  
+        vehicle_2_data = self.find_closest_vehicle()
 
         # Need to run this every step for GPS denoising
         tick_data = self.tick(input_data, vehicle_2_data)
@@ -632,7 +644,13 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
         lidar_transformed = deepcopy(tick_data['lidar'])
         lidar_transformed_adj = deepcopy(tick_data['lidar_adj'])
         lidar_transformed[:, 1] *= -1  # invert
-        lidar_transformed_adj[:, 1] *= -1  # invert
+        if lidar_transformed_adj is not None:
+            lidar_transformed_adj[:, 1] *= -1  # invert
+            lidar_transformed_adj = np.concatenate((lidar_transformed_adj, np.ones((lidar_transformed_adj.shape[0], 1))), axis=1)
+            transformation_matrix_adj = {'ego_matrix': tick_data['pose_adj'].get_matrix()}
+            transformation_matrix_ego = {'ego_matrix': tick_data['pose_ego'].get_matrix()}
+            lidar_transformed_adj = align(lidar_transformed_adj, transformation_matrix_adj, transformation_matrix_ego, degree=0)[:, :3]
+            lidar_transformed = np.concatenate((lidar_transformed, lidar_transformed_adj), axis=0)
         lidar_transformed = torch.from_numpy(lidar_to_histogram_features(lidar_transformed)).unsqueeze(0)
         lidar_transformed_degrees = [lidar_transformed.to('cuda', dtype=torch.float32)]
         lidar_bev = torch.cat(lidar_transformed_degrees[::-1], dim=1)
@@ -791,3 +809,28 @@ class EgoModel():
         next_spds = np.array(next_spds)
 
         return next_locs, next_yaws, next_spds
+
+def compare_lidar_3d(lidar1, lidar2):
+    # display two sets of lidar points in the same 3d coordinate
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+    fig = plt.figure()
+    ax = Axes3D(fig)
+    ax.scatter(lidar1[:, 0], lidar1[:, 1], lidar1[:, 2], c='r', marker='.')
+    ax.scatter(lidar2[:, 0], lidar2[:, 1], lidar2[:, 2], c='b', marker='.')
+    plt.show()
+
+def compare_lidar_bev(lidar1, lidar2):
+    bev1 = lidar_to_histogram_features(lidar1)
+    bev2 = lidar_to_histogram_features(lidar2)
+    bev3 = lidar_to_histogram_features(np.concatenate((lidar1, lidar2), axis=0))
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    ax1 = fig.add_subplot(131)
+    ax1.imshow(bev1.sum(0))
+    ax2 = fig.add_subplot(132)
+    ax2.imshow(bev2.sum(0))
+    ax3 = fig.add_subplot(133)
+    ax3.imshow(bev3.sum(0))
+    plt.show()
+

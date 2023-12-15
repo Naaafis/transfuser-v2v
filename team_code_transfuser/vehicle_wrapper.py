@@ -57,8 +57,8 @@ class VehicleWrapper(object):
                 bp.set_attribute('rotation_frequency', str(self._sensor_spec['rotation_frequency']))
                 bp.set_attribute('points_per_second', str(self._sensor_spec['points_per_second']))
             else:
-                bp.set_attribute('rotation_frequency', str(10))
-                bp.set_attribute('points_per_second', str(600000))
+                bp.set_attribute('rotation_frequency', str(20))
+                bp.set_attribute('points_per_second', str(1200000))
             bp.set_attribute('channels', str(64))
             bp.set_attribute('upper_fov', str(10))
             bp.set_attribute('atmosphere_attenuation_rate', str(0.004))
