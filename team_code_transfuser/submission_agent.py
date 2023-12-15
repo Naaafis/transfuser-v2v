@@ -221,7 +221,7 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
                 result['lidar_adj'] = vehicle_2_data['data']['lidar'][1][:, :3]
                 result['pose_adj'] = vehicle_2_data['transform']
             except Exception as e:
-                print("Failed to get data from adjacent due to: ", e)
+                # print("Failed to get data from adjacent due to: ", e)
                 result['lidar_adj'] = None
                 result['pose_adj'] = None
         result['pose_ego'] = input_data['ego_transform']
@@ -282,7 +282,7 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
             # return both the vehicle and the sensor data
             
             #return self.collect_vehicle_data(self._wrapped_vehicles[closest_vehicle.id])
-            print("closest vehicle id:", closest_vehicle.id)
+            # print("closest vehicle id:", closest_vehicle.id)
             sensor_data = self.collect_vehicle_data(self._wrapped_vehicles[closest_vehicle.id])
             
             vehicle_2_info = {

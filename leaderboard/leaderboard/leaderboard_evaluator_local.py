@@ -408,9 +408,11 @@ class LeaderboardEvaluator(object):
             config = route_indexer.next()
 
             # run
+            print("\n\033[1m========= Running {} ({}/{}) =========".format(config.name, config.index, route_indexer.total))
             self._load_and_run_scenario(args, config)
 
             route_indexer.save_state(args.checkpoint)
+            print("{} completed and saved to {}".format(config.name, args.checkpoint))
 
         # save global statistics
         print("\033[1m> Registering the global statistics\033[0m")
