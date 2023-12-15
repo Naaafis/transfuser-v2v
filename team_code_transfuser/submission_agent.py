@@ -118,6 +118,7 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
         self.initialized = True
         # Privileged
         self._vehicle = CarlaDataProvider.get_hero_actor()
+        self._wrapped_vehicles = {}
         self._world = self._vehicle.get_world()
 
     def _get_position(self, tick_data):
@@ -179,12 +180,11 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
 
         if (self.backbone != 'latentTF'):  # LiDAR method
             sensors.append({
-            sensors.append({
                             'type': 'sensor.lidar.ray_cast',
                             'x': self.lidar_pos[0], 'y': self.lidar_pos[1], 'z': self.lidar_pos[2],
                             'roll': self.config.lidar_rot[0], 'pitch': self.config.lidar_rot[1], 'yaw': self.config.lidar_rot[2],
                             'id': 'lidar'
-                           })
+                            })
 
         return sensors
 
@@ -217,6 +217,12 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
         if (self.backbone != 'latentTF'):
             lidar = input_data['lidar'][1][:, :3]
             result['lidar'] = lidar
+            try:
+                result['lidar_adj'] = vehicle_2_data['data']['lidar'][1][:, :3]
+                result['pose_adj'] = vehicle_2_data['transform']
+            except:
+                result['lidar_adj'] = None
+                result['pose_adj'] = None
 
         pos = self._get_position(result)
         result['gps'] = pos
@@ -266,6 +272,7 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
             # return both the vehicle and the sensor data
             
             #return self.collect_vehicle_data(self._wrapped_vehicles[closest_vehicle.id])
+            print("closest vehicle id:", closest_vehicle.id)
             sensor_data = self.collect_vehicle_data(self._wrapped_vehicles[closest_vehicle.id])
             
             vehicle_2_info = {
@@ -281,9 +288,9 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
             vehicle_transform = closest_vehicle.get_transform()
             sensor_spec = {
                 'type': 'sensor.lidar.ray_cast',
-                'x': vehicle_transform.location.x,
-                'y': vehicle_transform.location.y,
-                'z': vehicle_transform.location.z,
+                'x': vehicle_transform.location.x + 1.3,
+                'y': vehicle_transform.location.y + 0.0,
+                'z': vehicle_transform.location.z + 2.5,
                 'roll': vehicle_transform.rotation.roll,
                 'pitch': vehicle_transform.rotation.pitch,
                 'yaw': vehicle_transform.rotation.yaw - 90,  # Adjusting yaw
@@ -303,7 +310,14 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
     
     def collect_vehicle_data(self, vehicle_wrapper):
         # Logic to collect data from the vehicle wrapper
-        return vehicle_wrapper._sensor_interface.get_data()
+        try:
+            print("adj vehicle sensor data buffer length:", vehicle_wrapper._sensor_interface._new_data_buffers.qsize())
+            data = vehicle_wrapper._sensor_interface.get_data()
+            # print("Successfully get data from vehicle wrapper")
+        except:
+            print("Failed to get data from vehicle wrapper!!!!!!!!!!!!!!")
+            data = None
+        return data
 
 
     @torch.inference_mode() # Faster version of torch_no_grad
@@ -615,8 +629,10 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
 
 
     def prepare_lidar(self, tick_data):
-        lidar_transformed = deepcopy(tick_data['lidar']) 
+        lidar_transformed = deepcopy(tick_data['lidar'])
+        lidar_transformed_adj = deepcopy(tick_data['lidar_adj'])
         lidar_transformed[:, 1] *= -1  # invert
+        lidar_transformed_adj[:, 1] *= -1  # invert
         lidar_transformed = torch.from_numpy(lidar_to_histogram_features(lidar_transformed)).unsqueeze(0)
         lidar_transformed_degrees = [lidar_transformed.to('cuda', dtype=torch.float32)]
         lidar_bev = torch.cat(lidar_transformed_degrees[::-1], dim=1)
