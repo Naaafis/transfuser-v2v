@@ -268,11 +268,13 @@ class DataAgent(AutoPilot):
         
         # remove all other vehicles other than closest_vehicle from wrapped_vehicles                
         for vehicle in vehicles:
-            if vehicle.id != self._vehicle.id and vehicle.id != closest_vehicle.id:
-                if vehicle.id in self._wrapped_vehicles:
-                    # run clean up first 
-                    self._wrapped_vehicles[vehicle.id].cleanup()
-                    self._wrapped_vehicles.pop(vehicle.id)
+            if closest_vehicle:
+                if vehicle.id != self._vehicle.id and vehicle.id != closest_vehicle.id:
+                    if vehicle.id in self._wrapped_vehicles:
+                        # run clean up first 
+                        self._wrapped_vehicles[vehicle.id].cleanup()
+                        self._wrapped_vehicles.pop(vehicle.id)
+
 
         if closest_vehicle and closest_vehicle.id in self._wrapped_vehicles:
             # sensors have already been set up for this vehicle
