@@ -120,6 +120,7 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
         self._vehicle = CarlaDataProvider.get_hero_actor()
         self._wrapped_vehicles = {}
         self._world = self._vehicle.get_world()
+        self._vehicle_wrappers = {}
 
     def _get_position(self, tick_data):
         gps = tick_data['gps']
@@ -250,7 +251,8 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
     def find_closest_vehicle(self):
         closest_vehicle = None
         min_distance = 30  # 30 meters threshold
-        max_distance = 50  # 50 meters threshold
+        max_distance = 30  # 30 meters threshold
+        
         ego_location = self._vehicle.get_location()
         vehicles = self._world.get_actors().filter('*vehicle*')
 
@@ -260,8 +262,18 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
                 if distance < min_distance:
                     min_distance = distance
                     closest_vehicle = vehicle
-                if distance > max_distance:
+                elif distance > max_distance:
                     # clean up the vechiel_wrapper if the vehicle is now too far away
+                    if vehicle.id in self._wrapped_vehicles:
+                        # run clean up first 
+                        self._wrapped_vehicles[vehicle.id].cleanup()
+                        # remove from our wrapped vehicles dictionary
+                        self._wrapped_vehicles.pop(vehicle.id)
+                        
+        # remove all other vehicles other than closest_vehicle from wrapped_vehicles                
+        for vehicle in vehicles:
+            if closest_vehicle:
+                if vehicle.id != self._vehicle.id and vehicle.id != closest_vehicle.id:
                     if vehicle.id in self._wrapped_vehicles:
                         # run clean up first 
                         self._wrapped_vehicles[vehicle.id].cleanup()

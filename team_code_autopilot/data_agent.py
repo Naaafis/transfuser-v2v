@@ -265,6 +265,16 @@ class DataAgent(AutoPilot):
                         # run clean up first 
                         self._wrapped_vehicles[vehicle.id].cleanup()
                         self._wrapped_vehicles.pop(vehicle.id)
+        
+        # remove all other vehicles other than closest_vehicle from wrapped_vehicles                
+        for vehicle in vehicles:
+            if closest_vehicle:
+                if vehicle.id != self._vehicle.id and vehicle.id != closest_vehicle.id:
+                    if vehicle.id in self._wrapped_vehicles:
+                        # run clean up first 
+                        self._wrapped_vehicles[vehicle.id].cleanup()
+                        self._wrapped_vehicles.pop(vehicle.id)
+
 
         if closest_vehicle and closest_vehicle.id in self._wrapped_vehicles:
             # sensors have already been set up for this vehicle
@@ -287,12 +297,12 @@ class DataAgent(AutoPilot):
             vehicle_transform = closest_vehicle.get_transform()
             sensor_spec = {
                 'type': 'sensor.lidar.ray_cast',
-                'x': vehicle_transform.location.x,
-                'y': vehicle_transform.location.y,
-                'z': vehicle_transform.location.z,
-                'roll': vehicle_transform.rotation.roll,
-                'pitch': vehicle_transform.rotation.pitch,
-                'yaw': vehicle_transform.rotation.yaw - 90,  # Adjusting yaw
+                'x': 1.3,
+                'y': 0.0,
+                'z': 2.5,
+                'roll': 0.0, #vehicle_transform.rotation.roll,
+                'pitch': 0.0, #vehicle_transform.rotation.pitch,
+                'yaw': -90.0, #vehicle_transform.rotation.yaw - 90,  # Adjusting yaw
                 'rotation_frequency': 20,
                 'points_per_second': 1200000,
                 'id': 'lidar'
