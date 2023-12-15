@@ -297,9 +297,9 @@ class DataAgent(AutoPilot):
             vehicle_transform = closest_vehicle.get_transform()
             sensor_spec = {
                 'type': 'sensor.lidar.ray_cast',
-                'x': vehicle_transform.location.x + 1.3,
-                'y': vehicle_transform.location.y + 0.0,
-                'z': vehicle_transform.location.z + 2.5,
+                'x': 1.3,
+                'y': 0.0,
+                'z': 2.5,
                 'roll': 0.0, #vehicle_transform.rotation.roll,
                 'pitch': 0.0, #vehicle_transform.rotation.pitch,
                 'yaw': -90.0, #vehicle_transform.rotation.yaw - 90,  # Adjusting yaw
