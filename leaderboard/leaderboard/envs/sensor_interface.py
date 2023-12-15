@@ -223,6 +223,7 @@ class SensorInterface(object):
         self._new_data_buffers.put((tag, timestamp, data))
 
     def get_data(self):
+        
         try: 
             data_dict = {}
             while len(data_dict.keys()) < len(self._sensors_objects.keys()):
