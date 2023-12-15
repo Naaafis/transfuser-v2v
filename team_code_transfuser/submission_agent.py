@@ -325,7 +325,7 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
             data = vehicle_wrapper._sensor_interface.get_data()
             # print("Successfully get data from vehicle wrapper")
         except:
-            print("Failed to get data from vehicle wrapper!!!!!!!!!!!!!!")
+            # print("Failed to get data from vehicle wrapper!!!!!!!!!!!!!!")
             data = None
         return data
 
