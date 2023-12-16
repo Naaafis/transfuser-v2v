@@ -148,10 +148,12 @@ To evaluate a model, we first launch a CARLA server:
 
 Once the CARLA server is running, evaluate an agent with the script:
 ```Shell
-./leaderboard/scripts/local_evaluation.sh <carla root> <working directory of this repo (*/transfuser/)>
+./leaderboard/scripts/local_evaluation.sh <carla root> <working directory of this repo (*/transfuser/)> <v2v fusioin mode (none or raw_fusion)>
 ```
 
 By editing the arguments in `local_evaluation.sh`, we can benchmark performance on the Longest6 routes. You can evaluate both privileged agents (such as [autopilot.py]) and sensor-based models. To evaluate the sensor-based models use [submission_agent.py](./team_code_transfuser/submission_agent.py) as the `TEAM_AGENT` and point to the folder you downloaded the model weights into for the `TEAM_CONFIG`. The code is automatically configured to use the correct method based on the args.txt file in the model folder.
+
+By switching the third argument between `none` and `raw_fusion`, we can evaluate the performance of different lidar fusion mode.
 
 You can look at qualitative examples of the expected driving behavior of TransFuser on the Longest6 routes [here](https://www.youtube.com/watch?v=DZS-U3-iV0s&list=PL6LvknlY2HlQG3YQ2nMIx7WcnyzgK9meO).
 

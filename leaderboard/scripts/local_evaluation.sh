@@ -1,5 +1,6 @@
 export CARLA_ROOT=${1:-/home/kchitta/Documents/CARLA_0.9.10.1}
 export WORK_DIR=${2:-/home/kchitta/Documents/transfuser}
+export V2V_MODE=${3:-none}
 
 export CARLA_SERVER=${CARLA_ROOT}/CarlaUE4.sh
 export PYTHONPATH=$PYTHONPATH:${CARLA_ROOT}/PythonAPI
@@ -29,4 +30,5 @@ python3 ${LEADERBOARD_ROOT}/leaderboard/leaderboard_evaluator_local.py \
 --agent=${TEAM_AGENT} \
 --agent-config=${TEAM_CONFIG} \
 --debug=${DEBUG_CHALLENGE} \
---resume=${RESUME}
+--resume=${RESUME} \
+--v2v-fusion-mode=${V2V_MODE}
