@@ -35,6 +35,10 @@ def get_entry_point():
 
 
 class HybridAgent(autonomous_agent.AutonomousAgent):
+    def __init__(self, path_to_conf_file, v2v_mode='none'):
+        super().__init__(path_to_conf_file)
+        self.v2v_mode = v2v_mode
+
     def setup(self, path_to_conf_file, route_index=None):
         self.track = autonomous_agent.Track.SENSORS
         self.config_path = path_to_conf_file
@@ -656,7 +660,7 @@ class HybridAgent(autonomous_agent.AutonomousAgent):
         lidar_transformed = deepcopy(tick_data['lidar'])
         lidar_transformed_adj = deepcopy(tick_data['lidar_adj'])
         lidar_transformed[:, 1] *= -1  # invert
-        if lidar_transformed_adj is not None:
+        if lidar_transformed_adj is not None and self.v2v_mode == 'raw_fusion':
             lidar_transformed_adj[:, 1] *= -1  # invert
             lidar_transformed_adj = np.concatenate((lidar_transformed_adj, np.ones((lidar_transformed_adj.shape[0], 1))), axis=1)
             transformation_matrix_adj = {'ego_matrix': tick_data['pose_adj'].get_matrix()}

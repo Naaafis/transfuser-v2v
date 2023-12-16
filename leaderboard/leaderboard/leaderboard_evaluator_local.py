@@ -268,7 +268,7 @@ class LeaderboardEvaluator(object):
             if int(os.environ['DATAGEN'])==1:
                 self.agent_instance = getattr(self.module_agent, agent_class_name)(args.agent_config, config.index)
             else:
-                self.agent_instance = getattr(self.module_agent, agent_class_name)(args.agent_config)
+                self.agent_instance = getattr(self.module_agent, agent_class_name)(args.agent_config, v2v_mode=args.v2v_fusion_mode)
             config.agent = self.agent_instance
 
             # Check and store the sensors
@@ -459,6 +459,7 @@ def main():
     parser.add_argument("--checkpoint", type=str,
                         default='./simulation_results.json',
                         help="Path to checkpoint used for saving statistics and resuming")
+    parser.add_argument("--v2v-fusion-mode", choices=["none", "raw_fusion"], default='none')
 
     arguments = parser.parse_args()
 
